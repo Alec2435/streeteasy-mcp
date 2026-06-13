@@ -48,8 +48,12 @@ the listing `url` and let a human submit the tour request in their browser.
 
 ## Endpoints
 
-- `POST /mcp` — the MCP Streamable HTTP endpoint (stateless).
+- `POST /mcp` — the MCP Streamable HTTP endpoint (stateless). Requires a bearer
+  token unless `MCP_DISABLE_AUTH` is set — see [Authentication](#authentication-oauth-21--dynamic-client-registration).
 - `GET /` and `GET /health` — health checks.
+- OAuth: `/.well-known/oauth-authorization-server`,
+  `/.well-known/oauth-protected-resource`, `/register`, `/authorize`, `/token`,
+  `/revoke`.
 
 ## Run as a local MCP server (recommended)
 
@@ -88,8 +92,29 @@ MCP_URL=http://localhost:3000/mcp node test-client.mjs
 | Env var | Purpose |
 | --- | --- |
 | `PORT` | Port to listen on. Railway sets this automatically. |
-| `MCP_AUTH_TOKEN` | Optional. If set, `POST /mcp` requires `Authorization: Bearer <token>`. |
+| `PUBLIC_BASE_URL` | Public origin the server is reachable at (the OAuth issuer), e.g. `https://streeteasy-mcp-production.up.railway.app`. Defaults to `https://$RAILWAY_PUBLIC_DOMAIN` on Railway, else `http://localhost:$PORT`. |
+| `MCP_DISABLE_AUTH` | Set to `1`/`true` to disable OAuth and leave `/mcp` open (handy for local testing with the bundled `test-client.mjs`). |
 | `STREETEASY_PROXY` | Optional. HTTP/HTTPS proxy for all upstream StreetEasy calls, e.g. `http://user:pass@host:port`. **Required for cloud/datacenter deploys** — use a residential proxy. `HTTPS_PROXY` / `ALL_PROXY` are also honored. |
+
+### Authentication (OAuth 2.1 + Dynamic Client Registration)
+
+The HTTP transport requires OAuth by default — MCP clients (Claude, etc.) run
+the standard authorization flow automatically, so you usually don't configure
+anything. The server is a self-contained OAuth 2.1 authorization server:
+
+- Advertises metadata at `/.well-known/oauth-authorization-server` and
+  `/.well-known/oauth-protected-resource`.
+- Supports **Dynamic Client Registration** (RFC 7591) at `/register`, so clients
+  self-register with no manual `client_id` / `client_secret`.
+- `/authorize` (PKCE S256 required) → `/token` (authorization-code + refresh),
+  with `/revoke` for revocation.
+- Unauthenticated `POST /mcp` returns `401` with a `WWW-Authenticate` header
+  pointing at the protected-resource metadata, which kicks off discovery + DCR.
+
+Because the tools expose only public listing data, there's no per-user login:
+authorization is auto-approved and the issued bearer token simply gates `/mcp`.
+Tokens are held in memory (single replica); a restart just makes clients
+transparently re-register. Set `MCP_DISABLE_AUTH=1` to turn the whole layer off.
 
 ### Proxy / bot-detection
 
@@ -116,14 +141,15 @@ railway init --name streeteasy-mcp
 railway variables --set "STREETEASY_PROXY=http://user:pass@host:port"
 railway up
 railway domain          # generate a public URL
-# optional: railway variables --set MCP_AUTH_TOKEN=<token>
+# Set the OAuth issuer to your public URL (or rely on RAILWAY_PUBLIC_DOMAIN):
+railway variables --set "PUBLIC_BASE_URL=https://<your-app>.up.railway.app"
 ```
 
 ## Connect from Claude Code
 
 ```bash
 claude mcp add --transport http streeteasy https://<your-app>.up.railway.app/mcp
-# if you set a token:
-claude mcp add --transport http streeteasy https://<your-app>.up.railway.app/mcp \
-  --header "Authorization: Bearer <token>"
 ```
+
+The client discovers the OAuth endpoints and registers itself automatically
+(Dynamic Client Registration) — no `client_id` / token to configure.
