@@ -1,6 +1,7 @@
 import express, { type Request, type Response } from "express";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { buildServer } from "./mcp";
+import { resolveProxyFromEnv, redactProxyUrl } from "./streeteasy/index";
 
 const PORT = Number(process.env.PORT) || 3000;
 const AUTH_TOKEN = process.env.MCP_AUTH_TOKEN; // optional bearer token
@@ -96,4 +97,15 @@ app.delete("/mcp", methodNotAllowed);
 app.listen(PORT, () => {
   console.log(`streeteasy-mcp listening on :${PORT} (POST /mcp)`);
   if (AUTH_TOKEN) console.log("Bearer auth is ENABLED (MCP_AUTH_TOKEN set).");
+  const proxy = resolveProxyFromEnv();
+  // StreetEasy blocks datacenter IPs, so a residential proxy is required for
+  // this hosted deployment to reach the API. Surface it for operators.
+  if (proxy) {
+    console.log(`Outbound proxy: ${redactProxyUrl(proxy)}`);
+  } else {
+    console.warn(
+      "No outbound proxy configured (direct). StreetEasy blocks datacenter " +
+        "IPs, so API calls from cloud hosts will likely fail. Set STREETEASY_PROXY.",
+    );
+  }
 });

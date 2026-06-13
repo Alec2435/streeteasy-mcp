@@ -8,12 +8,16 @@ client (v0.4.0) and exposes it over either **stdio** (local) or **Streamable
 HTTP** (remote) transport, so it can be connected to by Claude or any MCP client.
 
 > [!IMPORTANT]
-> **Run this from a residential IP, not a cloud host.** StreetEasy's API sits
-> behind PerimeterX bot-detection that blocks cloud/datacenter IPs (AWS, GCP,
-> Railway, etc.). The HTTP build deploys fine and the MCP layer works, but the
-> upstream `search_rentals` / `get_rental_details` calls get a `403` from a
-> datacenter. Running the **stdio** server locally from a normal home
-> connection works. See [Run as a local MCP server](#run-as-a-local-mcp-server-recommended).
+> **StreetEasy blocks datacenter/cloud IPs.** Its API sits behind PerimeterX
+> bot-detection that `403`s cloud/datacenter IPs (AWS, GCP, Railway, etc.). The
+> HTTP build deploys fine and the MCP layer works, but the upstream
+> `search_rentals` / `get_rental_details` calls fail from a datacenter unless you
+> do one of:
+> - **Run the stdio server locally** from a normal home connection — see
+>   [Run as a local MCP server](#run-as-a-local-mcp-server-recommended), or
+> - **Route upstream calls through a residential proxy** by setting
+>   `STREETEASY_PROXY` — this is what lets the hosted HTTP build (Railway, etc.)
+>   reach the API. See [Proxy / bot-detection](#proxy--bot-detection).
 
 ## Tools
 
@@ -85,6 +89,21 @@ MCP_URL=http://localhost:3000/mcp node test-client.mjs
 | --- | --- |
 | `PORT` | Port to listen on. Railway sets this automatically. |
 | `MCP_AUTH_TOKEN` | Optional. If set, `POST /mcp` requires `Authorization: Bearer <token>`. |
+| `STREETEASY_PROXY` | Optional. HTTP/HTTPS proxy for all upstream StreetEasy calls, e.g. `http://user:pass@host:port`. **Required for cloud/datacenter deploys** — use a residential proxy. `HTTPS_PROXY` / `ALL_PROXY` are also honored. |
+
+### Proxy / bot-detection
+
+StreetEasy `403`s datacenter IPs, so any cloud host (Railway included) must send
+upstream requests through a **residential proxy**. Set `STREETEASY_PROXY` to a
+proxy URL (credentials may be embedded, e.g.
+`http://user:pass@host:port`) and all StreetEasy GraphQL traffic is tunnelled
+through it. On startup the server logs the proxy in use with credentials
+redacted (`Outbound proxy: http://***:***@host:port`).
+
+Rotating residential proxies hand out a fresh exit IP per connection, and a
+clean IP isn't guaranteed every time, so the client automatically **retries a
+`403` bot-challenge** (up to 3 times when a proxy is set) to land on a good IP.
+A local stdio server on a residential connection doesn't need a proxy.
 
 ## Deploy on Railway
 
@@ -93,6 +112,8 @@ This repo ships a `Dockerfile`. With the Railway CLI:
 ```bash
 railway login
 railway init --name streeteasy-mcp
+# Cloud hosts are datacenter IPs — set a residential proxy so calls aren't 403'd:
+railway variables --set "STREETEASY_PROXY=http://user:pass@host:port"
 railway up
 railway domain          # generate a public URL
 # optional: railway variables --set MCP_AUTH_TOKEN=<token>

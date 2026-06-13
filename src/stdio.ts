@@ -1,5 +1,6 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { buildServer } from "./mcp";
+import { resolveProxyFromEnv, redactProxyUrl } from "./streeteasy/index";
 
 /**
  * Local stdio entry point. Run this from a residential IP (e.g. your machine)
@@ -18,7 +19,12 @@ async function main(): Promise<void> {
   const server = buildServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  process.stderr.write("streeteasy-mcp (stdio) ready\n");
+  const proxy = resolveProxyFromEnv();
+  process.stderr.write(
+    `streeteasy-mcp (stdio) ready${
+      proxy ? ` — proxy: ${redactProxyUrl(proxy)}` : " — direct (no proxy)"
+    }\n`,
+  );
 }
 
 main().catch((err) => {
