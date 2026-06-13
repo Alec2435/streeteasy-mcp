@@ -4,9 +4,16 @@ A remote [MCP](https://modelcontextprotocol.io) server that wraps the StreetEasy
 GraphQL API so an LLM agent can search and parse NYC rental listings.
 
 It vendors the [`streeteasy-api`](https://github.com/evandcoleman/streeteasy-api)
-client (v0.4.0) and exposes it over the **Streamable HTTP** transport, so it can
-be deployed as a long-running web service (e.g. on Railway) and connected to by
-Claude or any MCP client.
+client (v0.4.0) and exposes it over either **stdio** (local) or **Streamable
+HTTP** (remote) transport, so it can be connected to by Claude or any MCP client.
+
+> [!IMPORTANT]
+> **Run this from a residential IP, not a cloud host.** StreetEasy's API sits
+> behind PerimeterX bot-detection that blocks cloud/datacenter IPs (AWS, GCP,
+> Railway, etc.). The HTTP build deploys fine and the MCP layer works, but the
+> upstream `search_rentals` / `get_rental_details` calls get a `403` from a
+> datacenter. Running the **stdio** server locally from a normal home
+> connection works. See [Run as a local MCP server](#run-as-a-local-mcp-server-recommended).
 
 ## Tools
 
@@ -40,7 +47,25 @@ the listing `url` and let a human submit the tour request in their browser.
 - `POST /mcp` — the MCP Streamable HTTP endpoint (stateless).
 - `GET /` and `GET /health` — health checks.
 
-## Run locally
+## Run as a local MCP server (recommended)
+
+Runs over stdio from your machine's residential IP — the configuration that
+actually reaches StreetEasy.
+
+```bash
+npm install
+npm run build
+# register with Claude Code (uses the stdio entry point):
+claude mcp add streeteasy -- node "$(pwd)/dist/stdio.js"
+```
+
+Then ask Claude to search rentals. To run the stdio server by hand:
+
+```bash
+npm run start:stdio
+```
+
+## Run as an HTTP server
 
 ```bash
 npm install

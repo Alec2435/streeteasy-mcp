@@ -3,12 +3,16 @@
   "version": "0.1.0",
   "description": "Remote MCP server wrapping the StreetEasy GraphQL API for rental search and listing details",
   "main": "dist/server.js",
+  "bin": {
+    "streeteasy-mcp": "dist/stdio.js"
+  },
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
+    "start:stdio": "node dist/stdio.js",
     "dev": "tsc && node dist/server.js"
   },
   "license": "MIT",
