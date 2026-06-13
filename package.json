@@ -1,0 +1,28 @@
+{
+  "name": "streeteasy-mcp",
+  "version": "0.1.0",
+  "description": "Remote MCP server wrapping the StreetEasy GraphQL API for rental search and listing details",
+  "main": "dist/server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "tsc && node dist/server.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "express": "^5.2.1",
+    "graphql": "^16.8.1",
+    "graphql-request": "^5.2.0",
+    "uuid": "^11.1.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^20.11.24",
+    "typescript": "^5.5.0"
+  }
+}
