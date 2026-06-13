@@ -9,7 +9,13 @@ import type {
   SortingDirection,
 } from "./streeteasy/types";
 import { resolveAreaCode, listAreas } from "./areas";
-import { normalizeSearch, stripTypename, listingUrl } from "./listings";
+import {
+  normalizeSearch,
+  stripTypename,
+  listingUrl,
+  photoUrls,
+  videoLinks,
+} from "./listings";
 
 const VALID_AMENITIES = new Set<string>(Object.values(Amenities));
 
@@ -70,7 +76,8 @@ export function buildServer(): McpServer {
         "or numeric area codes — use list_areas to discover them. Amenities are " +
         "uppercase enum tokens — use list_amenities. Returns a compact list of " +
         "listings plus a totalCount; paginate with page/perPage. Each listing has " +
-        "an `id` you can pass to get_rental_details.",
+        "an `id` you can pass to get_rental_details, plus `leadPhotoUrl` and " +
+        "`photoUrls` (ready-to-view image URLs) and a `url` to the listing page.",
       inputSchema: {
         areas: z
           .array(z.union([z.string(), z.number()]))
@@ -194,7 +201,10 @@ export function buildServer(): McpServer {
       description:
         "Fetch full details for a single rental listing by its id (the `id` field " +
         "from search_rentals results). Returns description, full amenities/features, " +
-        "media, pricing history, building info, nearby transit & schools, and more.",
+        "pricing history, building info, nearby transit & schools, and media: " +
+        "`media.photoUrls` and `media.floorPlanUrls` (CDN image URLs), " +
+        "`media.videoLinks` (YouTube/Vimeo watch URLs + thumbnails), and " +
+        "`media.tour3dUrl` (3D walkthrough) when available.",
       inputSchema: {
         listingId: z
           .string()
@@ -208,6 +218,13 @@ export function buildServer(): McpServer {
         const rental = cleaned.rentalByListingId;
         if (rental) {
           rental.url = listingUrl(undefined, args.listingId);
+          // Resolve media keys to usable URLs (photos via CDN, videos to watch links).
+          if (rental.media) {
+            rental.media.photoUrls = photoUrls(rental.media.photos);
+            rental.media.floorPlanUrls = photoUrls(rental.media.floorPlans);
+            rental.media.videoLinks = videoLinks(rental.media.videos);
+            // tour3dUrl is already a usable link when present.
+          }
         }
         return jsonContent(cleaned);
       } catch (err) {

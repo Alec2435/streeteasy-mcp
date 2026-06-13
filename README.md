@@ -12,14 +12,28 @@ Claude or any MCP client.
 
 | Tool | Description |
 | --- | --- |
-| `search_rentals` | Search active NYC rentals by area, price, beds, baths, amenities, pets. Returns compact listings + `totalCount`, paginated. |
-| `get_rental_details` | Full detail for one listing id: description, amenities, media, pricing history, building info, nearby transit/schools. |
+| `search_rentals` | Search active NYC rentals by area, price, beds, baths, amenities, pets. Returns compact listings + `totalCount`, paginated. Each listing includes `leadPhotoUrl` / `photoUrls` and a listing `url`. |
+| `get_rental_details` | Full detail for one listing id: description, amenities, pricing history, building info, nearby transit/schools, and resolved media — `media.photoUrls`, `media.floorPlanUrls`, `media.videoLinks` (YouTube/Vimeo), `media.tour3dUrl`. |
 | `list_areas` | Look up StreetEasy area names ↔ numeric codes (optionally filtered by a search term). |
 | `list_amenities` | List the valid amenity enum tokens. |
 
 `search_rentals` accepts area **names** (`"MANHATTAN"`, `"Williamsburg"`,
 `"upper east side"`) or numeric codes, and validates amenity tokens against the
 known set.
+
+### Media
+
+Photos resolve to Zillow's CDN (`photos.zillowstatic.com/fp/{key}-se_large_800_400.jpg`),
+videos to their provider watch URL (YouTube/Vimeo) plus a thumbnail, and 3D
+tours to a direct `tour3dUrl`. All are public — no auth required.
+
+### Not included: contact info & inquiries
+
+Listing agent contact details and "request a tour" inquiries are **not** exposed.
+They live behind StreetEasy's contact flow, which is protected by PerimeterX
+bot-detection (a "Press & Hold" human check). Automating it would mean evading
+bot-detection, so it's intentionally left out — the right pattern is to surface
+the listing `url` and let a human submit the tour request in their browser.
 
 ## Endpoints
 

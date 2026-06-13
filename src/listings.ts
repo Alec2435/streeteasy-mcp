@@ -6,6 +6,63 @@ import type {
 import { areaName } from "./areas";
 
 const SE_BASE = "https://streeteasy.com";
+const PHOTO_CDN = "https://photos.zillowstatic.com/fp";
+
+/**
+ * Resolve a StreetEasy photo/floorplan key to a CDN image URL. StreetEasy
+ * photos are served from Zillow's CDN with a size suffix; "large"
+ * (800x400) and "medium" (500x250) are the variants that resolve.
+ */
+export function photoUrl(key: string, size: "large" | "medium" = "large"): string {
+  const sfx = size === "medium" ? "se_medium_500_250" : "se_large_800_400";
+  return `${PHOTO_CDN}/${key}-${sfx}.jpg`;
+}
+
+interface KeyedPhoto {
+  key?: string | null;
+}
+
+/** Map an array of {key} photo objects to CDN image URLs (skipping empties). */
+export function photoUrls(
+  photos: KeyedPhoto[] | undefined | null,
+  size: "large" | "medium" = "large",
+): string[] {
+  return (photos ?? [])
+    .filter((p): p is { key: string } => Boolean(p && p.key))
+    .map((p) => photoUrl(p.key, size));
+}
+
+interface RawVideo {
+  id?: string;
+  provider?: string;
+  imageUrl?: string | null;
+}
+
+export interface VideoLink {
+  id: string | null;
+  provider: string | null;
+  watchUrl: string | null;
+  thumbnailUrl: string | null;
+}
+
+/** Turn raw video objects into playable links (YouTube/Vimeo) + thumbnails. */
+export function videoLinks(videos: RawVideo[] | undefined | null): VideoLink[] {
+  return (videos ?? []).map((v) => {
+    const provider = (v.provider || "").toUpperCase();
+    let watchUrl: string | null = null;
+    if (v.id && provider === "YOUTUBE") {
+      watchUrl = `https://www.youtube.com/watch?v=${v.id}`;
+    } else if (v.id && provider === "VIMEO") {
+      watchUrl = `https://vimeo.com/${v.id}`;
+    }
+    return {
+      id: v.id ?? null,
+      provider: v.provider ?? null,
+      watchUrl,
+      thumbnailUrl: v.imageUrl ?? null,
+    };
+  });
+}
 
 /** Build a navigable StreetEasy URL from a listing's urlPath (which may start with `//`). */
 export function listingUrl(urlPath: string | undefined, id: string): string {
@@ -64,6 +121,10 @@ function normalizeListing(edge: RentalEdge) {
       : null,
     url: listingUrl(n.urlPath, n.id),
     slug: n.slug,
+    leadPhotoUrl: n.leadMedia?.photo?.key
+      ? photoUrl(n.leadMedia.photo.key)
+      : null,
+    photoUrls: photoUrls(n.photos),
   };
 
   // Amenity-match metadata only exists on organic/featured edges
